@@ -13,13 +13,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -33,7 +30,6 @@ import androidx.compose.ui.unit.sp
 import com.cloner.multiinstance.engine.CrashReporter
 import com.cloner.multiinstance.engine.HookDiagnostics
 import com.cloner.multiinstance.ui.DashboardScreen
-import com.cloner.multiinstance.ui.WorkProfileScreen
 import com.cloner.multiinstance.ui.theme.AppClonerTheme
 
 class MainActivity : ComponentActivity() {
@@ -41,30 +37,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             AppClonerTheme {
-                var tab by remember { mutableIntStateOf(1) } // default: Work Profile (reliable)
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Column(Modifier.fillMaxSize()) {
-                        TabRow(selectedTabIndex = tab) {
-                            Tab(
-                                selected = tab == 0,
-                                onClick = { tab = 0 },
-                                text = { Text("Virtual clones") }
-                            )
-                            Tab(
-                                selected = tab == 1,
-                                onClick = { tab = 1 },
-                                text = { Text("Work profile") }
-                            )
-                        }
-                        androidx.compose.foundation.layout.Box(
-                            Modifier.weight(1f).fillMaxWidth()
-                        ) {
-                            if (tab == 0) DashboardScreen() else WorkProfileScreen()
-                        }
-                    }
+                    DashboardScreen()
                 }
 
                 var crashText by remember { mutableStateOf<String?>(null) }
