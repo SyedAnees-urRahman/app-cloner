@@ -145,7 +145,59 @@ object VirtualInstrumentation {
                     context
                 }
             }.getOrDefault(context)
-            return base.newApplication(cl, className, wrapped)
+            val app = base.newApplication(cl, className, wrapped)
+            // v2.27: Facebook's AuraApplication launches background startup jobs during
+            // onCreate() that need the static AppContext holder initialized via
+            // AppContext.set(). In the cloned environment this init is skipped, causing
+            // "AppContext.set has not been invoked" on Aura-IO threads. Invoke the
+            // obfuscated static set(Context) manually BEFORE onCreate() runs (the
+            // framework calls onCreate later via callApplicationOnCreate).
+            initTargetAppContext(wrapped, app)
+            return app
+        }
+
+        /**
+         * v2.27: Manually initializes the target app's static AppContext holder.
+         * The throwing method from on-device stack traces is X.6VG.A01; X.6VG is the
+         * AppContext holder and A01 is its get(). We find its static set(Context)
+         * method and invoke it with the Application instance.
+         */
+        private fun initTargetAppContext(context: Context, app: Application) {
+            runCatching {
+                // Use the Application's own classloader: it loaded AuraApplication,
+                // so it can load X.6VG from the same APK/obfuscation.
+                val classLoader = app.classLoader
+                var invoked = false
+                runCatching {
+                    val holder = Class.forName("X.6VG", false, classLoader)
+                    val setMethod = holder.declaredMethods.firstOrNull {
+                        java.lang.reflect.Modifier.isStatic(it.modifiers) &&
+                            it.parameterTypes.size == 1 &&
+                            Context::class.java.isAssignableFrom(it.parameterTypes[0])
+                    }
+                    if (setMethod != null) {
+                        setMethod.isAccessible = true
+                        setMethod.invoke(null, app)
+                        HookDiagnostics.record(
+                            context,
+                            "appctx: invoked X.6VG." + setMethod.name + "(application) OK"
+                        )
+                        invoked = true
+                    } else {
+                        HookDiagnostics.record(
+                            context,
+                            "appctx: X.6VG found but no static set(Context) method"
+                        )
+                    }
+                }.onFailure {
+                    HookDiagnostics.record(context, "appctx: X.6VG lookup failed: " + it.message)
+                }
+                if (!invoked) {
+                    HookDiagnostics.record(context, "appctx: FAILED to invoke AppContext.set")
+                }
+            }.onFailure {
+                HookDiagnostics.record(context, "appctx: exception: " + it.message)
+            }
         }
 
         /** Our ClonerApp instance (already created when a target Application boots). */
