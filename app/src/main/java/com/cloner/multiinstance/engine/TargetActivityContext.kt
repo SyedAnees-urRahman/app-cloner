@@ -37,33 +37,13 @@ class TargetActivityContext(
     private var cachedTheme: Resources.Theme? = null
 
     /**
-     * v2.28: AppCompat theme override. جب non-zero ہو تو getTheme() target ایپ کی
-     * theme کے بجائے HOST کے resources سے اصلی Theme.AppCompat بناتا ہے۔
-     * Facebook کا obfuscated AppCompat delegate wrapper context کی theme دیکھتا ہے
-     * (redirected X.AkD.A0l field کے ذریعے) — وہ Theme.AppCompat ہونی چاہیے ورنہ
-     * X.001.A0t throw کرتا ہے۔
+     * v2.30: v2.28's host-based AppCompat forcing is REMOVED. Context.obtainStyledAttributes
+     * is final and delegates to getTheme(), so this override IS the hook point — but the
+     * theme must be built from the TARGET's resources (containing the target's own
+     * AppCompat attribute IDs), not the host's. The target-based theme below is built
+     * from targetResources with the target's app + activity themes.
      */
-    private var appCompatThemeOverride: Int = 0
-
-    fun forceAppCompatTheme(resId: Int) {
-        appCompatThemeOverride = resId
-        cachedTheme = null
-    }
-
     override fun getTheme(): Resources.Theme {
-        val override = appCompatThemeOverride
-        if (override != 0) {
-            var t = cachedTheme
-            if (t == null) {
-                // HOST base context کے resources سے بنائیں تاکہ AppCompat style
-                // resource ID resolve ہو (target کے resources میں یہ ID نہیں)۔
-                t = baseContext.resources.newTheme()
-                t.applyStyle(override, true)
-                cachedTheme = t
-                HookDiagnostics.record(this, "theme: forced AppCompat theme on wrapper (res=0x" + override.toString(16) + ")")
-            }
-            return t
-        }
         val tr = targetThemeRes
         if (tr != 0) {
             var t = cachedTheme
@@ -82,6 +62,7 @@ class TargetActivityContext(
                 t.applyStyle(tr, true)
                 cachedTheme = t
                 HookDiagnostics.record(this, "theme: built full theme (app=0x" + ar.toString(16) + " + activity=0x" + tr.toString(16) + ")")
+                HookDiagnostics.record(this, "theme: getTheme returning TARGET-based theme")
             }
             return t
         }
@@ -89,40 +70,4 @@ class TargetActivityContext(
     }
 
     fun resetThemeCache() { cachedTheme = null }
-
-    /**
-     * v2.29 (ROOT CAUSE FIX): ContextWrapper.obtainStyledAttributes() delegates
-     * directly to mBase, BYPASSING our getTheme() override entirely. So AppCompat's
-     * mContext.obtainStyledAttributes(R.styleable.AppCompatTheme) never saw our
-     * theme — every AppCompat app crashed. Route all three variants through
-     * getTheme() like ContextThemeWrapper does. One-time log only (hot path).
-     */
-    private var styledLogged = false
-
-    private fun logStyledOnce() {
-        if (!styledLogged) {
-            styledLogged = true
-            HookDiagnostics.record(this, "theme: obtainStyledAttributes routed via wrapper theme")
-        }
-    }
-
-    override fun obtainStyledAttributes(attrs: IntArray): android.content.res.TypedArray {
-        logStyledOnce()
-        return theme.obtainStyledAttributes(attrs)
-    }
-
-    override fun obtainStyledAttributes(resid: Int, attrs: IntArray): android.content.res.TypedArray {
-        logStyledOnce()
-        return theme.obtainStyledAttributes(resid, attrs)
-    }
-
-    override fun obtainStyledAttributes(
-        set: android.util.AttributeSet?,
-        attrs: IntArray,
-        defStyleAttr: Int,
-        defStyleRes: Int
-    ): android.content.res.TypedArray {
-        logStyledOnce()
-        return theme.obtainStyledAttributes(set, attrs, defStyleAttr, defStyleRes)
-    }
 }

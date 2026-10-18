@@ -24,8 +24,8 @@ android {
         applicationId = "com.cloner.multiinstance"
         minSdk = 26
         targetSdk = 35
-        versionCode = 36
-        versionName = "2.29"
+        versionCode = 37
+        versionName = "2.30"
         // English-only UI: strip all other language resources.
         resourceConfigurations += "en"
     }
