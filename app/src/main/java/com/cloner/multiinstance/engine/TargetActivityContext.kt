@@ -89,4 +89,40 @@ class TargetActivityContext(
     }
 
     fun resetThemeCache() { cachedTheme = null }
+
+    /**
+     * v2.29 (ROOT CAUSE FIX): ContextWrapper.obtainStyledAttributes() delegates
+     * directly to mBase, BYPASSING our getTheme() override entirely. So AppCompat's
+     * mContext.obtainStyledAttributes(R.styleable.AppCompatTheme) never saw our
+     * theme — every AppCompat app crashed. Route all three variants through
+     * getTheme() like ContextThemeWrapper does. One-time log only (hot path).
+     */
+    private var styledLogged = false
+
+    private fun logStyledOnce() {
+        if (!styledLogged) {
+            styledLogged = true
+            HookDiagnostics.record(this, "theme: obtainStyledAttributes routed via wrapper theme")
+        }
+    }
+
+    override fun obtainStyledAttributes(attrs: IntArray): android.content.res.TypedArray {
+        logStyledOnce()
+        return theme.obtainStyledAttributes(attrs)
+    }
+
+    override fun obtainStyledAttributes(resid: Int, attrs: IntArray): android.content.res.TypedArray {
+        logStyledOnce()
+        return theme.obtainStyledAttributes(resid, attrs)
+    }
+
+    override fun obtainStyledAttributes(
+        set: android.util.AttributeSet?,
+        attrs: IntArray,
+        defStyleAttr: Int,
+        defStyleRes: Int
+    ): android.content.res.TypedArray {
+        logStyledOnce()
+        return theme.obtainStyledAttributes(set, attrs, defStyleAttr, defStyleRes)
+    }
 }
