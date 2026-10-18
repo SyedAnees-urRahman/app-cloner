@@ -7,6 +7,10 @@
         tools:ignore="QueryAllPackagesCondition" />
     <uses-permission android:name="android.permission.INSTALL_SHORTCUT" />
 
+    <!-- Keep-alive foreground service (XOS task-killer resistance) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <application
         android:name=".ClonerApp"
         android:allowBackup="false"
@@ -45,6 +49,19 @@
                 <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
             </intent-filter>
         </receiver>
+
+        <!-- Keep-alive: foreground service in the :clone process so aggressive
+             task killers (e.g. Infinix XOS Freezer) don't kill cloned apps.
+             specialUse type requires PROPERTY_SPECIAL_USE_FGS_SUBTYPE (Android 14+). -->
+        <service
+            android:name=".engine.CloneKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:process=":clone">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the app-clone engine process alive while cloned apps run, preventing the system task killer from terminating cloned apps." />
+        </service>
 
         <!-- Virtualization stubs: one per launchMode, isolated :clone process -->
         <activity

@@ -3,10 +3,12 @@ package com.cloner.multiinstance
 import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.res.Resources
 import android.os.Build
 import com.cloner.multiinstance.engine.CloneContext
+import com.cloner.multiinstance.engine.CloneKeepAliveService
 import com.cloner.multiinstance.engine.CrashReporter
 import com.cloner.multiinstance.engine.HookDiagnostics
 import com.cloner.multiinstance.engine.PendingCloneStore
@@ -150,6 +152,26 @@ class ClonerApp : Application() {
                 HookDiagnostics.record(
                     base,
                     "targetApp: SKIPPED (targetPkg=$targetPkg cloneId=$cloneId resources=${res != null})"
+                )
+            }
+            // XOS keep-alive: start the foreground service AFTER the heavy
+            // target-app boot above, so the FGS startForeground timeout can't
+            // fire while the main thread is still busy. Raises the :clone
+            // process priority so XOS Freezer / task killers leave cloned
+            // apps alone.
+            runCatching {
+                val svc = Intent(base, CloneKeepAliveService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    base.startForegroundService(svc)
+                } else {
+                    @Suppress("DEPRECATION")
+                    base.startService(svc)
+                }
+                HookDiagnostics.record(base, "keep-alive: foreground service start requested")
+            }.onFailure {
+                HookDiagnostics.record(
+                    base,
+                    "keep-alive: FAILED: ${it.javaClass.simpleName}: ${it.message}"
                 )
             }
             if (cloneId != null) CloneContext(base, cloneId) else base
