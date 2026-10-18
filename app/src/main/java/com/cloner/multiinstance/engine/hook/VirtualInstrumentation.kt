@@ -442,23 +442,32 @@ object VirtualInstrumentation {
                 HookDiagnostics.record(activity, "mIntent replaced with target: " + if (mIntentOk.isSuccess) "OK"
                     else "FAILED: " + mIntentOk.exceptionOrNull()?.let { it.javaClass.simpleName + ": " + it.message })
             }
-            // (h2) v2.26: Set a REAL AppCompat theme from our own package so
-            // Facebook's obfuscated AppCompat check (X.001.A0t) passes.
-            // v2.25 failed: "mTheme field NOT FOUND" on this Android 15 build, and
-            // our wrapper theme has the attributes but AppCompat ignores it.
-            // Activity.setTheme() replaces the theme before onCreate, so
-            // obtainStyledAttributes(R.styleable.AppCompatTheme) resolves against
-            // a genuine Theme.AppCompat. UI styling won't match Facebook's, but
-            // the activity should LAUNCH instead of crashing. Runs BEFORE the
-            // (h) mTheme block and BEFORE super.callActivityOnCreate.
+            // (h2) v2.28: Set a REAL AppCompat theme on BOTH the activity AND the
+            // wrapper. v2.26's setTheme "fix" was a false positive (app crashed in
+            // Application.onCreate before reaching the Activity); v2.27 fixed
+            // AppContext, revealing the AppCompat crash was never fixed. Root cause:
+            // activity.setTheme() only changes the Activity's theme, but Facebook's
+            // AppCompat delegate queries the WRAPPER's theme via the redirected
+            // X.AkD.A0l field. Both must be Theme.AppCompat or X.001.A0t throws.
+            // Runs BEFORE the (h) mTheme block and BEFORE super.callActivityOnCreate.
             runCatching {
-                activity.setTheme(androidx.appcompat.R.style.Theme_AppCompat_Light_NoActionBar)
-                HookDiagnostics.record(activity, "appcompat: setTheme to Theme_AppCompat_Light_NoActionBar")
+                val appCompatTheme = androidx.appcompat.R.style.Theme_AppCompat_Light_NoActionBar
+                activity.setTheme(appCompatTheme)
+                HookDiagnostics.record(activity, "appcompat: setTheme to Theme_AppCompat_Light_NoActionBar (activity)")
+                val baseCtx = activity.baseContext
+                if (baseCtx is TargetActivityContext) {
+                    baseCtx.forceAppCompatTheme(appCompatTheme)
+                    HookDiagnostics.record(activity, "appcompat: wrapper theme forced to AppCompat")
+                } else {
+                    HookDiagnostics.record(activity, "appcompat: wrapper is " + baseCtx?.javaClass?.name + ", not TargetActivityContext")
+                }
             }.onFailure {
                 HookDiagnostics.record(activity, "appcompat: setTheme FAILED: " + it.javaClass.simpleName + ": " + it.message)
                 runCatching {
-                    activity.setTheme(androidx.appcompat.R.style.Theme_AppCompat_Light)
-                    HookDiagnostics.record(activity, "appcompat: setTheme fallback to Theme_AppCompat_Light")
+                    val fallback = androidx.appcompat.R.style.Theme_AppCompat_Light
+                    activity.setTheme(fallback)
+                    (activity.baseContext as? TargetActivityContext)?.forceAppCompatTheme(fallback)
+                    HookDiagnostics.record(activity, "appcompat: setTheme fallback to AppCompat Light (activity+wrapper)")
                 }.onFailure { e2 ->
                     HookDiagnostics.record(activity, "appcompat: setTheme fallback FAILED: " + e2.javaClass.simpleName)
                 }
