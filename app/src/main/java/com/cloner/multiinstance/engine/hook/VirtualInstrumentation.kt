@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.os.Bundle
+import java.lang.reflect.Field
 import com.cloner.multiinstance.engine.HookDiagnostics
 import com.cloner.multiinstance.engine.PendingCloneStore
 import com.cloner.multiinstance.engine.StorageSandbox
@@ -388,6 +389,38 @@ object VirtualInstrumentation {
                 }
                 HookDiagnostics.record(activity, "mIntent replaced with target: " + if (mIntentOk.isSuccess) "OK"
                     else "FAILED: " + mIntentOk.exceptionOrNull()?.let { it.javaClass.simpleName + ": " + it.message })
+            }
+            // (h) CRITICAL v2.25: set Activity.mTheme directly to the wrapper's theme.
+            // v2.24 on-device logs proved: activity.getTheme() != wrapperTheme.
+            // Activity.getTheme() returns the Activity's OWN mTheme field
+            // (ContextThemeWrapper.mTheme), NOT mBase.getTheme(). We set mBase to our
+            // wrapper but never mTheme, so AppCompat's obtainStyledAttributes ran
+            // against the wrong theme object. The wrapper's theme is verified good
+            // (hasWindowActionBar=true). Runs BEFORE super.callActivityOnCreate and
+            // BEFORE the delegate redirect below.
+            runCatching {
+                val wrapper = activity.baseContext as? TargetActivityContext
+                if (wrapper == null) {
+                    HookDiagnostics.record(activity, "mtheme: wrapper null, skipped")
+                } else {
+                    val wrapperTheme = wrapper.theme
+                    var cls: Class<*>? = activity.javaClass
+                    var mThemeField: Field? = null
+                    while (cls != null && mThemeField == null) {
+                        mThemeField = runCatching { cls.getDeclaredField("mTheme") }.getOrNull()
+                        cls = cls.superclass
+                    }
+                    if (mThemeField == null) {
+                        HookDiagnostics.record(activity, "mtheme: mTheme field NOT FOUND")
+                    } else {
+                        mThemeField.isAccessible = true
+                        mThemeField.set(activity, wrapperTheme)
+                        HookDiagnostics.record(activity, "mtheme: Activity.mTheme set to wrapper theme; " +
+                            "activity.getTheme()===wrapperTheme? " + (activity.theme === wrapperTheme))
+                    }
+                }
+            }.onFailure {
+                HookDiagnostics.record(activity, "mtheme: set FAILED: " + it.javaClass.simpleName + ": " + it.message)
             }
             // (g) AppCompat delegate context redirect — redirect ALL Context-typed fields.
             // v2.20 redirected only X.AkD.A0l (first field holding the activity) but the
