@@ -1,0 +1,19 @@
+# Gradle
+.gradle/
+build/
+app/build/
+
+# Local SDK path (CI runners have their own Android SDK)
+local.properties
+
+# Release keystore + passwords: NEVER commit. CI restores them from GitHub Secrets.
+keystore/cloner-release.jks
+keystore/keystore.properties
+
+# IDE
+*.iml
+.idea/
+
+# OS
+.DS_Store
+.kotlin/

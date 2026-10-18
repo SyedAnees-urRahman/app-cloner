@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesCondition" />
+    <uses-permission android:name="android.permission.INSTALL_SHORTCUT" />
+
+    <application
+        android:name=".ClonerApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="App Cloner Studio"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".CloneLauncherActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Work profile (Island/Shelter method) device admin -->
+        <receiver
+            android:name=".engine.workprofile.CloneDeviceAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Virtualization stubs: one per launchMode, isolated :clone process -->
+        <activity
+            android:name=".engine.StubActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|density"
+            android:exported="false"
+            android:process=":clone" />
+        <activity
+            android:name=".engine.StubSingleTopActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|density"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:process=":clone" />
+        <activity
+            android:name=".engine.StubSingleTaskActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|density"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:process=":clone" />
+        <activity
+            android:name=".engine.StubSingleInstanceActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|density"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:process=":clone" />
+    </application>
+</manifest>
