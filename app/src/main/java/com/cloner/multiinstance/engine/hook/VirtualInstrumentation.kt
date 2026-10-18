@@ -400,12 +400,12 @@ object VirtualInstrumentation {
             // the activity should LAUNCH instead of crashing. Runs BEFORE the
             // (h) mTheme block and BEFORE super.callActivityOnCreate.
             runCatching {
-                activity.setTheme(com.cloner.multiinstance.R.style.Theme_AppCompat_Light_NoActionBar)
+                activity.setTheme(androidx.appcompat.R.style.Theme_AppCompat_Light_NoActionBar)
                 HookDiagnostics.record(activity, "appcompat: setTheme to Theme_AppCompat_Light_NoActionBar")
             }.onFailure {
                 HookDiagnostics.record(activity, "appcompat: setTheme FAILED: " + it.javaClass.simpleName + ": " + it.message)
                 runCatching {
-                    activity.setTheme(com.cloner.multiinstance.R.style.Theme_AppCompat_Light)
+                    activity.setTheme(androidx.appcompat.R.style.Theme_AppCompat_Light)
                     HookDiagnostics.record(activity, "appcompat: setTheme fallback to Theme_AppCompat_Light")
                 }.onFailure { e2 ->
                     HookDiagnostics.record(activity, "appcompat: setTheme fallback FAILED: " + e2.javaClass.simpleName)
