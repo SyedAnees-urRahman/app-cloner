@@ -390,6 +390,27 @@ object VirtualInstrumentation {
                 HookDiagnostics.record(activity, "mIntent replaced with target: " + if (mIntentOk.isSuccess) "OK"
                     else "FAILED: " + mIntentOk.exceptionOrNull()?.let { it.javaClass.simpleName + ": " + it.message })
             }
+            // (h2) v2.26: Set a REAL AppCompat theme from our own package so
+            // Facebook's obfuscated AppCompat check (X.001.A0t) passes.
+            // v2.25 failed: "mTheme field NOT FOUND" on this Android 15 build, and
+            // our wrapper theme has the attributes but AppCompat ignores it.
+            // Activity.setTheme() replaces the theme before onCreate, so
+            // obtainStyledAttributes(R.styleable.AppCompatTheme) resolves against
+            // a genuine Theme.AppCompat. UI styling won't match Facebook's, but
+            // the activity should LAUNCH instead of crashing. Runs BEFORE the
+            // (h) mTheme block and BEFORE super.callActivityOnCreate.
+            runCatching {
+                activity.setTheme(com.cloner.multiinstance.R.style.Theme_AppCompat_Light_NoActionBar)
+                HookDiagnostics.record(activity, "appcompat: setTheme to Theme_AppCompat_Light_NoActionBar")
+            }.onFailure {
+                HookDiagnostics.record(activity, "appcompat: setTheme FAILED: " + it.javaClass.simpleName + ": " + it.message)
+                runCatching {
+                    activity.setTheme(com.cloner.multiinstance.R.style.Theme_AppCompat_Light)
+                    HookDiagnostics.record(activity, "appcompat: setTheme fallback to Theme_AppCompat_Light")
+                }.onFailure { e2 ->
+                    HookDiagnostics.record(activity, "appcompat: setTheme fallback FAILED: " + e2.javaClass.simpleName)
+                }
+            }
             // (h) CRITICAL v2.25: set Activity.mTheme directly to the wrapper's theme.
             // v2.24 on-device logs proved: activity.getTheme() != wrapperTheme.
             // Activity.getTheme() returns the Activity's OWN mTheme field

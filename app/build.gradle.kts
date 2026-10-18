@@ -24,8 +24,8 @@ android {
         applicationId = "com.cloner.multiinstance"
         minSdk = 26
         targetSdk = 35
-        versionCode = 31
-        versionName = "2.25"
+        versionCode = 32
+        versionName = "2.26"
         // English-only UI: strip all other language resources.
         resourceConfigurations += "en"
     }
@@ -94,6 +94,7 @@ configurations.all {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
     implementation("androidx.activity:activity-compose:1.9.3")
