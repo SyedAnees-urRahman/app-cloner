@@ -18,8 +18,9 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # NOTE: no setup-android step — ubuntu-latest runners already ship a full
+      # Android SDK preinstalled. android-actions/setup-android@v3 fails because
+      # its default `tools` package no longer exists in Google's SDK repo.
 
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
